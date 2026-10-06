@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Petugas Pemanggil Poli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* Format Struk Epson TM-T82X (80mm) Super Ringkas */
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 0mm !important;
+      }
+
+      body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Hilangkan total elemen web agar tingginya tidak membebani struk */
+      body>*:not(#area-struk-farmasi) {
+        display: none !important;
+      }
+
+      #area-struk-farmasi {
+        display: block !important;
+        position: static !important;
+        width: 72mm !important;
+        /* Area cetak pas untuk roll 80mm Epson */
+        margin: 0 auto !important;
+        padding: 2mm 0 !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen p-6 font-sans">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Ruang Kontrol Antrean Poli</h1>
+        <p class="text-sm text-slate-500">Panggil pasien & cetak antrean farmasi ke apotek</p>
+      </div>
+
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <label class="text-sm font-semibold text-slate-700 whitespace-nowrap">Poli:</label>
+        <select id="select-poli" onchange="muatAntrean()"
+          class="bg-slate-50 border border-slate-300 font-bold text-emerald-600 text-sm rounded-xl p-2.5 w-full">
+          <option value="">-- Memuat Poli... --</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tombol Aksi Panggil BPJS vs UMUM -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <button onclick="panggilBerikutnyaByJenis('BPJS')"
+        class="bg-emerald-600 hover:bg-emerald-700 active:scale-98 transition text-white p-5 rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-between">
+        <div class="text-left">
+          <div class="text-xs text-emerald-200 font-bold uppercase tracking-wider">Antrean Berikutnya</div>
+          <div class="text-xl font-black">📢 PANGGIL PASIEN BPJS</div>
+          <div id="count-bpjs" class="text-xs text-emerald-100 mt-1">0 Pasien Menunggu</div>
+        </div>
+        <span class="text-4xl">💳</span>
+      </button>
+
+      <button onclick="panggilBerikutnyaByJenis('UMUM')"
+        class="bg-blue-600 hover:bg-blue-700 active:scale-98 transition text-white p-5 rounded-2xl shadow-lg shadow-blue-600/20 flex items-center justify-between">
+        <div class="text-left">
+          <div class="text-xs text-blue-200 font-bold uppercase tracking-wider">Antrean Berikutnya</div>
+          <div class="text-xl font-black">📢 PANGGIL PASIEN UMUM</div>
+          <div id="count-umum" class="text-xs text-blue-100 mt-1">0 Pasien Menunggu</div>
+        </div>
+        <span class="text-4xl">💵</span>
+      </button>
+    </div>
+
+    <!-- Tabel Pasien Hari Ini -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div
+        class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div class="flex items-center gap-2">
+          <h2 class="font-bold text-slate-700">Daftar Pasien Hari Ini</h2>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
+
+        <!-- Tab Filter -->
+        <div class="flex items-center gap-2 bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+          <button onclick="setFilterTabel('SEMUA')" id="tab-SEMUA"
+            class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">Semua</button>
+          <button onclick="setFilterTabel('BPJS')" id="tab-BPJS"
+            class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Khusus BPJS</button>
+          <button onclick="setFilterTabel('UMUM')" id="tab-UMUM"
+            class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">Khusus UMUM</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs font-semibold uppercase text-slate-500 bg-slate-50/50">
+              <th class="p-4 text-center">No. Reg</th>
+              <th class="p-4">Jenis</th>
+              <th class="p-4">Nama Pasien</th>
+              <th class="p-4">Dokter</th>
+              <th class="p-4 text-center">Status</th>
+              <th class="p-4 text-center">Aksi Dokter</th>
+              <!-- KOLOM BARU UNTUK CETAK FARMASI -->
+              <th class="p-4 text-center">Antrean Farmasi</th>
+            </tr>
+          </thead>
+          <tbody id="list-antrean" class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td colspan="7" class="p-6 text-center text-slate-400">Silakan pilih Poli terlebih dahulu di atas.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- AREA STRUK THERMAL FARMASI (F-001) -->
+  <!-- AREA STRUK THERMAL FARMASI (EPSON 80MM RINGKAS) -->
+  <!-- AREA STRUK THERMAL FARMASI (EPSON 80MM RINGKAS) -->
+  <div id="area-struk-farmasi" class="hidden text-black font-mono text-center text-xs leading-tight">
+    <h2 class="text-sm font-bold uppercase tracking-wider">RS UMUM DAERAH</h2>
+    <p class="text-[10px] uppercase text-gray-700">Antrean Resep / Farmasi</p>
+    <div class="border-b border-dashed border-black my-1"></div>
+
+    <p class="text-[10px]">Nomor Antrean Anda:</p>
+    <h1 id="struk-nomor-farmasi" class="text-4xl font-black my-1 font-mono tracking-tight">F-000</h1>
+
+    <div class="border-t border-dashed border-black my-1"></div>
+    <div class="text-[11px] text-left px-1 space-y-0.5">
+      <p><strong>Pasien :</strong> <span id="struk-pasien">-</span></p>
+      <p><strong>No. RM :</strong> <span id="struk-norm">-</span></p>
+      <p><strong>Poli :</strong> <span id="struk-poli">-</span></p>
+      <p><strong>Dokter :</strong> <span id="struk-dokter">-</span></p>
+    </div>
+
+    <div class="border-t border-dashed border-black my-1"></div>
+    <p id="struk-waktu-farmasi" class="text-[9px] text-gray-700">00/00/0000 00:00:00</p>
+    <p class="text-[9px] mt-0.5 font-sans">Harap serahkan struk ini ke Loket Farmasi.<br>Terima Kasih.</p>
+    <div class="h-1"></div>
+  </div>
+
+  <div class="border-t border-dashed border-black my-1"></div>
+  <p id="struk-waktu-farmasi" class="text-[9px] text-gray-700">00/00/0000 00:00:00</p>
+  <p class="text-[9px] mt-0.5">Harap serahkan struk ini ke Loket Farmasi.<br>Terima Kasih.</p>
+  <div class="h-2"></div>
+  </div>
+
+  <script>
+    const socket = io();
+    let daftarAntrean = [];
+    let filterAktif = 'SEMUA';
+
+    function escapeId(no_rawat) {
+      return btoa(no_rawat).replace(/=/g, '');
+    }
+
+    async function loadPoli() {
+      try {
+        const res = await fetch('/api/poli');
+        const result = await res.json();
+        const select = document.getElementById('select-poli');
+        select.innerHTML = '<option value="">-- Pilih Poliklinik --</option>';
+        result.data.forEach(p => {
+          select.innerHTML += `<option value="${p.kd_poli}">${p.nm_poli}</option>`;
+        });
+      } catch (err) {
+        alert('Gagal mengambil data poli: ' + err.message);
+      }
+    }
+
+    async function muatAntrean() {
+      const kd_poli = document.getElementById('select-poli').value;
+      if (!kd_poli) return;
+
+      try {
+        const res = await fetch(`/api/antrian-poli/${kd_poli}`);
+        const result = await res.json();
+        daftarAntrean = result.data;
+
+        const waitBPJS = daftarAntrean.filter(x => x.jenis_pasien === 'BPJS' && x.stts === 'Belum').length;
+        const waitUMUM = daftarAntrean.filter(x => x.jenis_pasien === 'UMUM' && x.stts === 'Belum').length;
+        document.getElementById('count-bpjs').innerText = `${waitBPJS} Pasien Menunggu`;
+        document.getElementById('count-umum').innerText = `${waitUMUM} Pasien Menunggu`;
+
+        renderTabel();
+      } catch (err) {
+        document.getElementById('list-antrean').innerHTML =
+          `<tr><td colspan="7" class="p-6 text-center text-red-500">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    function setFilterTabel(kategori) {
+      filterAktif = kategori;
+      ['SEMUA', 'BPJS', 'UMUM'].forEach(k => {
+        const btn = document.getElementById(`tab-${k}`);
+        if (k === kategori) {
+          btn.className = "px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+      renderTabel();
+    }
+
+    function renderTabel() {
+      const tbody = document.getElementById('list-antrean');
+      let list = daftarAntrean;
+      if (filterAktif !== 'SEMUA') {
+        list = daftarAntrean.filter(x => x.jenis_pasien === filterAktif);
+      }
+
+      if (list.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="7" class="p-6 text-center text-slate-400">Tidak ada antrean pasien untuk kategori ini.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      list.forEach((item, index) => {
+        const rowId = escapeId(item.no_rawat);
+        const isSudah = item.stts === 'Sudah';
+        const isBPJS = item.jenis_pasien === 'BPJS';
+
+        tbody.innerHTML += `
+                    <tr id="row-${rowId}" class="hover:bg-slate-50 transition">
+                        <td class="p-4 text-center font-mono font-bold text-lg text-slate-800">${item.no_reg}</td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 text-xs font-bold rounded-lg ${isBPJS ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}">
+                                ${item.jenis_pasien}
+                            </span>
+                        </td>
+                        <td class="p-4 font-semibold text-slate-800">${item.nm_pasien}</td>
+                        <td class="p-4 text-slate-600 text-xs">${item.nm_dokter}</td>
+                        <td class="p-4 text-center">
+                            <span id="badge-${rowId}" class="px-3 py-1 text-xs font-semibold rounded-full ${isSudah ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                ${item.stts}
+                            </span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="panggilPasienObj('${item.no_reg}', '${item.nm_pasien}', '${item.nm_dokter}', '${item.nm_poli}', '${item.jenis_pasien}')" class="bg-slate-900 hover:bg-black text-white font-semibold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                                    📢 Panggil
+                                </button>
+                                <button id="btn-selesai-${rowId}" onclick="tandaiSelesai('${item.no_rawat}')" class="${isSudah ? 'hidden' : ''} bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                                    ✅ Selesai
+                                </button>
+                            </div>
+                        </td>
+                        <!-- TOMBOL CETAK ANTREAN FARMASI (OPSI A) -->
+                        <td class="p-4 text-center">
+                            <button onclick="cetakAntreanFarmasi(${index})" class="bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 mx-auto">
+                                <span>🖨️ Cetak Tiket</span>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+      });
+    }
+
+    // FUNGSI CETAK STRUK FARMASI (F-001, F-002, dst)
+    async function cetakAntreanFarmasi(index) {
+      const item = daftarAntrean[index];
+      if (!item) return;
+
+      try {
+        const res = await fetch('/api/farmasi/cetak-tiket', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            no_rawat: item.no_rawat,
+            no_rkm_medis: item.no_rkm_medis || '-',
+            nm_pasien: item.nm_pasien,
+            nm_poli: item.nm_poli,
+            nm_dokter: item.nm_dokter
+          })
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          // Isi data ke struk thermal
+          document.getElementById('struk-nomor-farmasi').innerText = result.nomor_antrian;
+          document.getElementById('struk-pasien').innerText = item.nm_pasien;
+          document.getElementById('struk-norm').innerText = item.no_rkm_medis || '-';
+          document.getElementById('struk-poli').innerText = item.nm_poli;
+          document.getElementById('struk-dokter').innerText = item.nm_dokter;
+          document.getElementById('struk-waktu-farmasi').innerText = new Date().toLocaleString('id-ID');
+
+          // Picu Cetak Kertas Thermal
+          const struk = document.getElementById('area-struk-farmasi');
+          struk.classList.remove('hidden');
+          window.print();
+          struk.classList.add('hidden');
+        } else {
+          alert('Gagal cetak tiket: ' + result.message);
+        }
+      } catch (err) {
+        alert('Error cetak farmasi: ' + err.message);
+      }
+    }
+
+    function panggilBerikutnyaByJenis(jenis) {
+      const antreanTersedia = daftarAntrean.find(x => x.jenis_pasien === jenis && x.stts === 'Belum');
+      if (!antreanTersedia) {
+        return alert(`Tidak ada antrean ${jenis} yang berstatus Belum.`);
+      }
+      panggilPasienObj(
+        antreanTersedia.no_reg,
+        antreanTersedia.nm_pasien,
+        antreanTersedia.nm_dokter,
+        antreanTersedia.nm_poli,
+        antreanTersedia.jenis_pasien
+      );
+    }
+
+    function panggilPasienObj(no_reg, nm_pasien, nm_dokter, nm_poli, jenis_pasien) {
+      socket.emit('panggil-poli', {
+        kd_poli: document.getElementById('select-poli').value,
+        nm_poli: nm_poli,
+        no_reg: no_reg,
+        nm_pasien: nm_pasien,
+        nm_dokter: nm_dokter,
+        jenis_pasien: jenis_pasien
+      });
+    }
+
+    async function tandaiSelesai(no_rawat) {
+      try {
+        await fetch('/api/antrian-poli/update-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            no_rawat: no_rawat,
+            stts: 'Sudah'
+          })
+        });
+      } catch (err) {
+        alert('Gagal update status: ' + err.message);
+      }
+    }
+
+    socket.on('status-pasien-berubah', (data) => {
+      const item = daftarAntrean.find(x => x.no_rawat === data.no_rawat);
+      if (item) item.stts = data.stts;
+      muatAntrean();
+    });
+
+    loadPoli();
+  </script>
+</body>
+
+</html>

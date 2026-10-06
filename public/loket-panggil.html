@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Petugas Pendaftaran Loket Terpadu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="bg-slate-100 min-h-screen p-6 font-sans">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Bar Kontrol Petugas -->
+    <div
+      class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Petugas Pendaftaran</h1>
+        <p class="text-sm text-slate-500">Panggil antrean berdasarkan kategori pasien (BPJS / UMUM / PRIORITAS)</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="text-sm font-semibold text-slate-700">Posisi Loket:</label>
+        <select id="select-loket"
+          class="bg-slate-50 border border-slate-300 font-bold text-emerald-600 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-400">
+          <option value="Loket 1">Loket 1</option>
+          <option value="Loket 2">Loket 2</option>
+          <option value="Loket 3">Loket 3</option>
+          <option value="Loket 4">Loket 4</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Box Pasien yang Sedang Dilayani Petugas Ini -->
+    <div
+      class="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl border border-slate-700">
+      <div class="text-center">
+        <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold block mb-1">SEDANG DILAYANI DI MEJA
+          ANDA</span>
+        <div id="nomor-aktif" class="text-7xl font-mono font-black my-2 text-white">---</div>
+        <p id="jenis-aktif" class="text-slate-300 text-sm font-semibold mb-4">Belum Memanggil Pasien</p>
+
+        <button onclick="panggilUlang()"
+          class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow">
+          🔁 Panggil Ulang Suara
+        </button>
+      </div>
+
+      <!-- FORM TAUTKAN NO REKAM MEDIS KHANZA -->
+      <div id="box-taut-rm" class="hidden mt-8 pt-6 border-t border-slate-700 max-w-lg mx-auto">
+        <label class="block text-xs uppercase tracking-wider text-emerald-400 font-bold mb-2 text-center">
+          Tautkan Pasien (Scan Barcode / Ketik No. RM Khanza)
+        </label>
+        <div class="flex gap-2">
+          <input type="text" id="input-norm" placeholder="Contoh: 001234 atau scan..."
+            onkeydown="if(event.key === 'Enter') simpanNoRM()"
+            class="bg-white text-slate-900 px-4 py-3 rounded-xl w-full text-center font-mono font-bold text-lg focus:ring-4 focus:ring-emerald-400 focus:outline-none" />
+          <button onclick="simpanNoRM()"
+            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-xl text-sm whitespace-nowrap transition">
+            💾 Tautkan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DAFTAR ANTREAN MENUNGGU (TERPISAH PER KATEGORI: BPJS vs UMUM) -->
+    <!-- =================================================================== -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- 1. KOLOM PASIEN BPJS -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-emerald-500/40 flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">💳</span>
+              <h3 class="font-black text-slate-800 text-lg">ANTREAN BPJS</h3>
+            </div>
+            <span id="badge-count-bpjs"
+              class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">
+              0 Menunggu
+            </span>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-4">Kategori KIS / BPJS Kesehatan (Kode A)</p>
+
+          <!-- Tombol Panggil Khusus BPJS -->
+          <button onclick="panggilKategori('BPJS')"
+            class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2 mb-4">
+            <span>📢 PANGGIL BPJS (A)</span>
+          </button>
+
+          <!-- List Chip Nomor Menunggu -->
+          <div class="border-t border-slate-100 pt-3">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Daftar
+              Menunggu:</span>
+            <div id="list-bpjs" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+              <span class="text-xs text-slate-400">Kosong</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. KOLOM PASIEN UMUM -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-blue-500/40 flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">💵</span>
+              <h3 class="font-black text-slate-800 text-lg">ANTREAN UMUM</h3>
+            </div>
+            <span id="badge-count-umum" class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">
+              0 Menunggu
+            </span>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-4">Pasien Mandiri / Asuransi Swasta (Kode B)</p>
+
+          <!-- Tombol Panggil Khusus UMUM -->
+          <button onclick="panggilKategori('UMUM')"
+            class="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-blue-600/20 transition flex items-center justify-center gap-2 mb-4">
+            <span>📢 PANGGIL UMUM (B)</span>
+          </button>
+
+          <!-- List Chip Nomor Menunggu -->
+          <div class="border-t border-slate-100 pt-3">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Daftar
+              Menunggu:</span>
+            <div id="list-umum" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+              <span class="text-xs text-slate-400">Kosong</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. KOLOM PASIEN PRIORITAS -->
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-amber-500/40 flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🧓</span>
+              <h3 class="font-black text-slate-800 text-lg">PRIORITAS</h3>
+            </div>
+            <span id="badge-count-prioritas"
+              class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
+              0 Menunggu
+            </span>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-4">Lansia, Disabilitas, & Balita (Kode C)</p>
+
+          <!-- Tombol Panggil Prioritas -->
+          <button onclick="panggilKategori('PRIORITAS')"
+            class="w-full bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-amber-600/20 transition flex items-center justify-center gap-2 mb-4">
+            <span>📢 PANGGIL PRIORITAS (C)</span>
+          </button>
+
+          <!-- List Chip Nomor Menunggu -->
+          <div class="border-t border-slate-100 pt-3">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Daftar
+              Menunggu:</span>
+            <div id="list-prioritas" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
+              <span class="text-xs text-slate-400">Kosong</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABEL RIWAYAT PASIEN SUDAH TERTAUT -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+        <h3 class="font-bold text-slate-700">Riwayat Antrean Selesai & Tertaut No. RM Hari Ini</h3>
+        <span class="text-xs text-slate-500">Tersinkron dengan MySQL Khanza</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs uppercase text-slate-500 bg-slate-50/50">
+              <th class="p-3 text-center">Nomor Tiket</th>
+              <th class="p-3">Kategori</th>
+              <th class="p-3">Loket</th>
+              <th class="p-3">No. RM Khanza</th>
+              <th class="p-3">Nama Pasien</th>
+              <th class="p-3 text-center">Jam Ambil</th>
+              <th class="p-3 text-center">Jam Panggil</th>
+            </tr>
+          </thead>
+          <tbody id="tabel-riwayat" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="7" class="p-4 text-center text-slate-400">Belum ada pasien yang selesai ditautkan hari ini.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    let antreanAktif = null;
+
+    async function muatStatus() {
+      try {
+        const res = await fetch('/api/loket/status-hari-ini');
+        const result = await res.json();
+
+        const data = result.data || [];
+        const waiting = data.filter(x => x.status === 'Menunggu');
+
+        // 1. Filter Antrean Per Kategori
+        const waitBPJS = waiting.filter(x => x.jenis === 'BPJS');
+        const waitUMUM = waiting.filter(x => x.jenis === 'UMUM');
+        const waitPrioritas = waiting.filter(x => x.jenis === 'PRIORITAS');
+
+        // Update Counter Badge
+        document.getElementById('badge-count-bpjs').innerText = `${waitBPJS.length} Menunggu`;
+        document.getElementById('badge-count-umum').innerText = `${waitUMUM.length} Menunggu`;
+        document.getElementById('badge-count-prioritas').innerText = `${waitPrioritas.length} Menunggu`;
+
+        // Render List BPJS
+        renderChipList('list-bpjs', waitBPJS,
+          'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100');
+        // Render List UMUM
+        renderChipList('list-umum', waitUMUM, 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100');
+        // Render List Prioritas
+        renderChipList('list-prioritas', waitPrioritas,
+          'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100');
+
+        // 2. Render Tabel Riwayat Selesai
+        const selesai = data.filter(x => x.status === 'Selesai').reverse();
+        const tbodyRiwayat = document.getElementById('tabel-riwayat');
+
+        if (selesai.length === 0) {
+          tbodyRiwayat.innerHTML =
+            '<tr><td colspan="7" class="p-4 text-center text-slate-400">Belum ada pasien yang selesai hari ini.</td></tr>';
+        } else {
+          tbodyRiwayat.innerHTML = '';
+          selesai.forEach(item => {
+            tbodyRiwayat.innerHTML += `
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="p-3 text-center font-mono font-bold text-slate-800">${item.nomor_lengkap}</td>
+                                <td class="p-3">
+                                    <span class="px-2 py-0.5 text-xs font-bold rounded ${item.jenis === 'BPJS' ? 'bg-emerald-100 text-emerald-800' : (item.jenis === 'UMUM' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800')}">
+                                        ${item.jenis}
+                                    </span>
+                                </td>
+                                <td class="p-3 font-semibold text-slate-700">${item.loket || '-'}</td>
+                                <td class="p-3 font-mono font-bold text-indigo-600 bg-indigo-50/50 rounded">${item.no_rkm_medis || '-'}</td>
+                                <td class="p-3 font-semibold text-slate-800">${item.nm_pasien || '-'}</td>
+                                <td class="p-3 text-center text-slate-500 font-mono text-xs">${item.waktu_ambil}</td>
+                                <td class="p-3 text-center text-slate-500 font-mono text-xs">${item.waktu_panggil || '-'}</td>
+                            </tr>
+                        `;
+          });
+        }
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Helper render chip nomor antrean yang bisa di-KLIK langsung
+    function renderChipList(elementId, items, styleClass) {
+      const container = document.getElementById(elementId);
+      if (items.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-400 italic">Tidak ada antrean</span>';
+        return;
+      }
+      container.innerHTML = '';
+      items.forEach(item => {
+        container.innerHTML += `
+                    <button onclick="panggilSpesifik(${item.id})" title="Klik untuk langsung memanggil nomor ini" 
+                        class="border px-3 py-1 rounded-xl font-mono font-bold text-xs transition cursor-pointer active:scale-90 ${styleClass}">
+                        ${item.nomor_lengkap}
+                    </button>
+                `;
+      });
+    }
+
+    // Panggil Urutan Tertua Berdasarkan Kategori (BPJS / UMUM / PRIORITAS)
+    async function panggilKategori(kategori) {
+      const loket = document.getElementById('select-loket').value;
+      try {
+        const res = await fetch('/api/loket/panggil-berikutnya', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            nama_loket: loket,
+            filter_jenis: kategori
+          })
+        });
+        const result = await res.json();
+        if (result.success) {
+          setPasienAktif(result.data);
+        } else {
+          alert(result.message);
+        }
+      } catch (err) {
+        alert('Gagal memanggil: ' + err.message);
+      }
+    }
+
+    // Panggil Nomor Spesifik yang Di-klik dari Daftar
+    async function panggilSpesifik(idAntrean) {
+      const loket = document.getElementById('select-loket').value;
+      try {
+        // Panggil endpoint yang sama dengan parameter id
+        const res = await fetch('/api/loket/panggil-spesifik', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            id: idAntrean,
+            nama_loket: loket
+          })
+        });
+        const result = await res.json();
+        if (result.success) {
+          setPasienAktif(result.data);
+        }
+      } catch (err) {
+        alert('Gagal: ' + err.message);
+      }
+    }
+
+    function setPasienAktif(data) {
+      antreanAktif = data;
+      document.getElementById('nomor-aktif').innerText = data.nomor;
+      document.getElementById('jenis-aktif').innerText = `Kategori: ${data.jenis} di ${data.loket}`;
+
+      const boxTaut = document.getElementById('box-taut-rm');
+      boxTaut.classList.remove('hidden');
+      const inputRM = document.getElementById('input-norm');
+      inputRM.value = '';
+      inputRM.focus();
+
+      muatStatus();
+    }
+
+    function panggilUlang() {
+      if (!antreanAktif) return alert('Belum ada pasien yang dipanggil.');
+      socket.emit('panggil-ulang-loket', antreanAktif);
+    }
+
+    async function simpanNoRM() {
+      const norm = document.getElementById('input-norm').value.trim();
+      if (!norm) return alert('Silakan masukkan nomor Rekam Medis pasien!');
+      if (!antreanAktif) return;
+
+      try {
+        const res = await fetch('/api/loket/tautkan-rm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            id: antreanAktif.id,
+            no_rkm_medis: norm
+          })
+        });
+        const result = await res.json();
+        if (result.success) {
+          document.getElementById('nomor-aktif').innerText = '---';
+          document.getElementById('jenis-aktif').innerText = 'Pelayanan Selesai. Silakan Panggil Pasien Berikutnya.';
+          document.getElementById('box-taut-rm').classList.add('hidden');
+          antreanAktif = null;
+
+          muatStatus();
+        }
+      } catch (e) {
+        alert('Gagal menautkan RM: ' + e.message);
+      }
+    }
+
+    socket.on('antrian-loket-baru', () => muatStatus());
+    socket.on('status-loket-selesai', () => muatStatus());
+
+    muatStatus();
+  </script>
+</body>
+
+</html>

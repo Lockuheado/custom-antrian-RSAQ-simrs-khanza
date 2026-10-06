@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mesin Cetak Antrean Mandiri</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Pengaturan Khusus Mesin Cetak Thermal */
+    @media print {
+      @page {
+        size: auto;
+        margin: 0mm !important;
+      }
+
+      body * {
+        visibility: hidden;
+      }
+
+      #area-struk,
+      #area-struk * {
+        visibility: visible;
+      }
+
+      #area-struk {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-width: 58mm;
+        /* Ganti ke 80mm jika roll kertas Anda lebar 80mm */
+        margin: 0 auto;
+        padding: 4px 2px;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-900 min-h-screen flex flex-col justify-between p-8 select-none">
+
+  <!-- Header Kiosk -->
+  <header class="text-center flex flex-col items-center">
+    <!-- LOGO RS: Letakkan file logo Anda di folder public/ dengan nama logo.png -->
+    <div class="mb-3">
+      <img src="/logo.png" alt="Logo RS" class="h-24 w-auto object-contain drop-shadow-lg"
+        onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%2310b981\'><path d=\'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z\'/></svg>';" />
+    </div>
+
+    <h1 class="text-3xl font-black tracking-wider text-emerald-400 uppercase">RUMAH SAKIT ANNISA QUEEN</h1>
+    <p class="text-slate-400 text-sm mt-1">Silakan Sentuh Layar Sesuai Kategori Layanan Anda</p>
+  </header>
+
+  <!-- Tombol Pilihan Layanan -->
+  <main class="max-w-4xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+    <button onclick="ambilTiket('BPJS')"
+      class="bg-gradient-to-b from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 active:scale-95 transition p-8 rounded-3xl border-2 border-emerald-400 shadow-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-6xl mb-4">💳</span>
+      <span class="text-2xl font-black text-white">PASIEN BPJS</span>
+      <span class="text-xs text-emerald-200 mt-2">Kartu Indonesia Sehat / KIS</span>
+      <span class="mt-4 bg-emerald-950/60 px-4 py-1 rounded-full text-xs font-mono font-bold text-emerald-300">KODE:
+        A</span>
+    </button>
+
+    <button onclick="ambilTiket('UMUM')"
+      class="bg-gradient-to-b from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 active:scale-95 transition p-8 rounded-3xl border-2 border-blue-400 shadow-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-6xl mb-4">💵</span>
+      <span class="text-2xl font-black text-white">PASIEN UMUM</span>
+      <span class="text-xs text-blue-200 mt-2">Biaya Pribadi / Asuransi Swasta</span>
+      <span class="mt-4 bg-blue-950/60 px-4 py-1 rounded-full text-xs font-mono font-bold text-blue-300">KODE: B</span>
+    </button>
+
+    <button onclick="ambilTiket('PRIORITAS')"
+      class="bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 active:scale-95 transition p-8 rounded-3xl border-2 border-amber-400 shadow-2xl flex flex-col items-center justify-center text-center">
+      <span class="text-6xl mb-4">🧓</span>
+      <span class="text-2xl font-black text-white">PRIORITAS</span>
+      <span class="text-xs text-amber-200 mt-2">Lansia, Disabilitas, Balita</span>
+      <span class="mt-4 bg-amber-950/60 px-4 py-1 rounded-full text-xs font-mono font-bold text-amber-300">KODE:
+        C</span>
+    </button>
+  </main>
+
+  <footer class="text-center text-slate-500 text-xs">
+    SIMRS Khanza Antrean Pendaftaran Mandiri
+  </footer>
+
+  <!-- AREA STRUK CETAK THERMAL (SUPER RINGKAS) -->
+  <div id="area-struk" class="hidden text-black font-mono text-center text-xs leading-tight">
+    <h2 class="text-xs font-bold uppercase tracking-wider">RS ANNISA QUEEN</h2>
+    <div class="border-b border-dashed border-black my-1"></div>
+
+    <p class="text-[10px]">Nomor Antrean Anda:</p>
+    <h1 id="struk-nomor" class="text-3xl font-black my-1 font-mono tracking-tight">A-000</h1>
+    <p id="struk-jenis" class="text-[10px] font-bold uppercase mb-1">PASIEN BPJS</p>
+
+    <div class="border-t border-dashed border-black my-1"></div>
+    <p id="struk-waktu" class="text-[9px] text-gray-700">00/00/0000 00:00:00</p>
+    <p class="text-[9px] mt-0.5">Harap menunggu nomor dipanggil.<br>Terima Kasih.</p>
+    <div class="h-2"></div>
+  </div>
+
+  <!-- POP-UP FLASH NOTIFIKASI SEMENTARA -->
+  <div id="flash-notif" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div
+      class="bg-slate-800 border-2 border-emerald-500 rounded-3xl p-8 text-center text-white max-w-sm w-full mx-4 shadow-2xl">
+      <span class="text-5xl block mb-2">🖨️</span>
+      <h3 class="text-lg font-bold">Mencetak Tiket Antrean...</h3>
+      <p id="flash-nomor" class="text-4xl font-mono font-black text-emerald-400 my-3">A-001</p>
+      <p class="text-xs text-slate-400">Silakan ambil struk Anda pada mesin pencetak.</p>
+    </div>
+  </div>
+
+  <script>
+    async function ambilTiket(jenis) {
+      try {
+        const res = await fetch('/api/loket/ambil-tiket', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            jenis
+          })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          // Isi data struk
+          document.getElementById('struk-nomor').innerText = result.nomor_antrian;
+          document.getElementById('struk-jenis').innerText = 'PASIEN ' + result.jenis;
+          document.getElementById('struk-waktu').innerText = new Date().toLocaleString('id-ID');
+
+          // Tampilkan notifikasi flash 2 detik
+          document.getElementById('flash-nomor').innerText = result.nomor_antrian;
+          const flash = document.getElementById('flash-notif');
+          flash.classList.remove('hidden');
+
+          // Langsung Picu Cetak Kertas Instan
+          const struk = document.getElementById('area-struk');
+          struk.classList.remove('hidden');
+          window.print();
+          struk.classList.add('hidden');
+
+          setTimeout(() => {
+            flash.classList.add('hidden');
+          }, 2000);
+        }
+      } catch (err) {
+        alert('Gagal mengambil tiket: ' + err.message);
+      }
+    }
+  </script>
+</body>
+
+</html>
