@@ -337,6 +337,32 @@ app.post('/api/farmasi/cetak-tiket', async (req, res) => {
 });
 
 // =================================================================
+// 5. MODUL DISPLAY KETERSEDIAAN KAMAR RAWAT INAP KHANZA
+// =================================================================
+app.get('/api/kamar/ketersediaan', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                b.nm_bangsal,
+                k.kelas,
+                COUNT(k.kd_kamar) AS total,
+                SUM(CASE WHEN k.status = 'KOSONG' THEN 1 ELSE 0 END) AS kosong,
+                SUM(CASE WHEN k.status = 'ISI' THEN 1 ELSE 0 END) AS terisi
+            FROM kamar k
+            INNER JOIN bangsal b ON k.kd_bangsal = b.kd_bangsal
+            WHERE k.statusdata = '1' AND b.status = '1'
+            GROUP BY b.nm_bangsal, k.kelas
+            ORDER BY b.nm_bangsal ASC, k.kelas ASC
+        `;
+        const [rows] = await db.query(query);
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        console.error('Error ketersediaan kamar:', e.message);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// =================================================================
 // 5. SOCKET.IO EVENT LISTENERS (WAJIB ADA AGAR TV BISA MERESPON)
 // =================================================================
 io.on('connection', (socket) => {
