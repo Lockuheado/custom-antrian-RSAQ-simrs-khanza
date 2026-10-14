@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoring Alur Task ID Pasien (Standar BPJS Kesehatan)</title>
+  <title>Monitoring Alur Task ID & Rekam Medis (SIMRS Khanza)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
@@ -22,22 +22,24 @@
 <body class="bg-slate-100 text-slate-800 min-h-screen p-4 lg:p-6 font-sans select-none">
   <div class="max-w-[1700px] mx-auto space-y-6">
 
-    <!-- HEADER MONITORING (DOMINAN PUTIH) -->
+    <!-- HEADER MONITORING (THEME PUTIH BERSIH) -->
     <header
       class="bg-white border border-slate-200 p-5 lg:p-6 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div class="flex items-center gap-4">
         <div
-          class="w-12 h-12 lg:w-14 lg:h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-3xl shadow-md shadow-emerald-600/20 text-white">
-          🏥
+          class="w-12 h-12 lg:w-14 lg:h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-3xl shadow-md shadow-indigo-600/20 text-white">
+          📑
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-xl lg:text-2xl font-bold tracking-wide text-slate-900">ALUR TASK ID PASIEN</h1>
+            <h1 class="text-xl lg:text-2xl font-bold tracking-wide text-slate-900">MONITORING TASK ID & MUTASI BERKAS RM
+            </h1>
             <span
-              class="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold">BPJS
-              Kesehatan</span>
+              class="text-xs bg-indigo-100 text-indigo-800 border border-indigo-300 px-2.5 py-0.5 rounded-full font-bold">SIMRS
+              Khanza</span>
           </div>
-          <p class="text-xs text-slate-500 mt-0.5">Pemantauan Waktu Tunggu Layanan (WTL) Terintegrasi SIMRS Khanza</p>
+          <p class="text-xs text-slate-500 mt-0.5">Pelacakan Alur Loket &bull; Distribusi Berkas RM (Dikirim, Diterima,
+            Kembali) &bull; E-Resep Farmasi</p>
         </div>
       </div>
 
@@ -47,92 +49,87 @@
           🔄 Refresh Data
         </button>
         <div id="jam"
-          class="font-mono text-xl lg:text-2xl font-black text-emerald-600 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-200 shadow-inner">
+          class="font-mono text-xl lg:text-2xl font-black text-indigo-600 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-200 shadow-inner">
           00:00:00
         </div>
       </div>
     </header>
 
-    <!-- KPI SUMMARY CARDS (7 TAHAPAN MILESTONE) -->
+    <!-- KPI SUMMARY CARDS: ALUR 7 TAHAPAN REVISI -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3.5">
-      <!-- 1. Check-in -->
+      <!-- TID 1 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-slate-500 block mb-1">1. Check-In</span>
+        <span class="text-[11px] font-bold uppercase text-slate-500 block mb-1">TID 1: Tiket</span>
         <span id="kpi-t1" class="font-mono text-2xl font-black text-slate-800">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Anjungan / Loket</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Ambil Karcis</span>
       </div>
-      <!-- 2. Tunggu Poli -->
+      <!-- TID 2 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-blue-600 block mb-1">2. Tunggu Poli</span>
+        <span class="text-[11px] font-bold uppercase text-blue-600 block mb-1">TID 2: Loket</span>
         <span id="kpi-t2" class="font-mono text-2xl font-black text-blue-600">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Ruang Tunggu</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Panggil Pendaftaran</span>
       </div>
-      <!-- 3. Panggilan -->
+      <!-- TID 3 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-indigo-600 block mb-1">3. Panggilan</span>
-        <span id="kpi-t3" class="font-mono text-2xl font-black text-indigo-600">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Dipanggil TV</span>
+        <span class="text-[11px] font-bold uppercase text-amber-600 block mb-1">TID 3: RM Kirim</span>
+        <span id="kpi-t3" class="font-mono text-2xl font-black text-amber-600">0</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Berkas Dikirim</span>
       </div>
-      <!-- 4. Pelayanan -->
+      <!-- TID 4 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-amber-600 block mb-1">4. Pelayanan</span>
-        <span id="kpi-t4" class="font-mono text-2xl font-black text-amber-600">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Pemeriksaan Dokter</span>
+        <span class="text-[11px] font-bold uppercase text-indigo-600 block mb-1">TID 4: RM Diterima</span>
+        <span id="kpi-t4" class="font-mono text-2xl font-black text-indigo-600">0</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Diterima di Poli</span>
       </div>
-      <!-- 5. Selesai Poli -->
+      <!-- TID 5 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-purple-600 block mb-1">5. Selesai Poli</span>
+        <span class="text-[11px] font-bold uppercase text-purple-600 block mb-1">TID 5: RM Kembali</span>
         <span id="kpi-t5" class="font-mono text-2xl font-black text-purple-600">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Poli Selesai</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Kembali ke Filing</span>
       </div>
-      <!-- 6. Antre Farmasi -->
+      <!-- TID 6 -->
       <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-teal-600 block mb-1">6. Antre Obat</span>
+        <span class="text-[11px] font-bold uppercase text-teal-600 block mb-1">TID 6: E-Resep</span>
         <span id="kpi-t6" class="font-mono text-2xl font-black text-teal-600">0</span>
-        <span class="text-[10px] text-slate-400 block mt-1">Racik Farmasi</span>
+        <span class="text-[10px] text-slate-400 block mt-1">Input Peresepan</span>
       </div>
-      <!-- 7. Selesai / Pulang -->
+      <!-- TID 7 -->
       <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-sm">
-        <span class="text-[11px] font-bold uppercase text-emerald-800 block mb-1">7. Obat Selesai</span>
+        <span class="text-[11px] font-bold uppercase text-emerald-800 block mb-1">TID 7: Obat Selesai</span>
         <span id="kpi-t7" class="font-mono text-2xl font-black text-emerald-700">0</span>
-        <span class="text-[10px] text-emerald-600 block mt-1 font-semibold">Diserahkan &bull; Pulang</span>
+        <span class="text-[10px] text-emerald-600 block mt-1 font-semibold">Validasi Selesai</span>
       </div>
     </div>
 
     <!-- FILTER & PENCARIAN -->
     <div
       class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-      <!-- Input Cari -->
       <div class="w-full md:w-96">
         <input type="text" id="search-input" oninput="filterDataTabel()"
           placeholder="Cari Nama Pasien / No. RM / No. Rawat..."
-          class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition" />
+          class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
       </div>
 
-      <!-- Filter Status & Poli -->
       <div class="flex items-center gap-3 w-full md:w-auto flex-wrap">
-        <!-- Dropdown Poli -->
         <select id="filter-poli" onchange="filterDataTabel()"
-          class="bg-slate-50 border border-slate-300 text-xs font-bold text-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+          class="bg-slate-50 border border-slate-300 text-xs font-bold text-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
           <option value="">Semua Poliklinik</option>
         </select>
 
-        <!-- Quick Filter Tabs Sesuai Jenis Pasien -->
         <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
           <button onclick="setTabFilter('SEMUA')" id="tab-SEMUA"
-            class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition">Semua</button>
+            class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm transition">Semua</button>
           <button onclick="setTabFilter('LAMA')" id="tab-LAMA"
-            class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">⚡ Pasien Lama
-            (Fast-Track)</button>
+            class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">⚡ Pasien Lama</button>
           <button onclick="setTabFilter('BARU')" id="tab-BARU"
             class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">📋 Pasien Baru</button>
-          <button onclick="setTabFilter('MACET')" id="tab-MACET"
-            class="px-3 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition">⚠️ Tunggu > 45m</button>
+          <button onclick="setTabFilter('BERKAS_BELUM')" id="tab-BERKAS_BELUM"
+            class="px-3 py-1.5 rounded-lg text-amber-700 hover:bg-amber-50 transition">📂 RM Belum Kembali</button>
         </div>
       </div>
     </div>
 
-    <!-- TABEL UTAMA DENGAN 7 MILESTONE VISUAL STEPPER (LIGHT THEME) -->
+    <!-- TABEL UTAMA STEPPER REVISI (TID 1 S/D 7) -->
     <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs">
@@ -141,26 +138,26 @@
               <th class="p-4 w-52">Pasien & Kategori</th>
               <th class="p-4 w-48">Tujuan Layanan</th>
 
-              <!-- 7 MILESTONE HEADER SESUAI INFOGRAFIS BPJS -->
+              <!-- 7 MILESTONE HEADER REVISI -->
               <th class="p-4 text-center">
                 <div class="grid grid-cols-7 gap-1 text-[10px] text-slate-600 font-bold">
-                  <span title="Pasien Datang & Check-In Mandiri">1. Check-In</span>
-                  <span title="Menunggu di Ruang Tunggu Poli">2. Tunggu Poli</span>
-                  <span title="Pemanggilan oleh Petugas/Dokter">3. Dipanggil</span>
-                  <span title="Mendapatkan Pelayanan Dokter">4. Dilayani</span>
-                  <span title="Selesai Pelayanan di Poli">5. Selesai</span>
-                  <span title="Mendapat Antrean Obat Farmasi">6. Antre Obat</span>
-                  <span title="Obat Selesai Dibuat & Pulang">7. Pulang</span>
+                  <span title="TID 1: Ambil Tiket Loket">T1: Tiket</span>
+                  <span title="TID 2: Panggil di Loket">T2: Loket</span>
+                  <span title="TID 3: Berkas Dikirim dari Filing">T3: RM Kirim</span>
+                  <span title="TID 4: Berkas Diterima di Poli">T4: RM Diterima</span>
+                  <span title="TID 5: Berkas Kembali ke Filing">T5: RM Kembali</span>
+                  <span title="TID 6: Resep Dokter Masuk">T6: E-Resep</span>
+                  <span title="TID 7: Obat Selesai Divalidasi">T7: Selesai</span>
                 </div>
               </th>
 
-              <th class="p-4 w-28 text-center">Total Durasi</th>
+              <th class="p-4 w-28 text-center">Resep</th>
               <th class="p-4 w-28 text-center">Status</th>
             </tr>
           </thead>
           <tbody id="tabel-body-pasien" class="divide-y divide-slate-100">
             <tr>
-              <td colspan="5" class="p-8 text-center text-slate-400 italic">Memuat data monitoring alur pasien...</td>
+              <td colspan="5" class="p-8 text-center text-slate-400 italic">Memuat data monitoring alur...</td>
             </tr>
           </tbody>
         </table>
@@ -173,6 +170,40 @@
     const socket = io();
     let listMasterData = [];
     let tabAktif = 'SEMUA';
+
+    // Helper memformat jam (mendukung tipe datetime maupun time dari Khanza)
+    // Helper Cerdas: Hanya mengambil Jam:Menit (HH:MM), mengabaikan Tanggal/Tahun
+    function formatJam(val) {
+      if (!val || val === '00:00:00' || String(val).startsWith('0000')) return null;
+
+      const s = String(val);
+
+      // 1. Jika format ISO dari server (contoh: "2026-10-14T13:37:00.000Z")
+      if (s.includes('T')) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          const jam = String(d.getHours()).padStart(2, '0');
+          const menit = String(d.getMinutes()).padStart(2, '0');
+          return `${jam}:${menit}`;
+        }
+        const bagianJam = s.split('T')[1];
+        return bagianJam.slice(0, 5);
+      }
+
+      // 2. Jika format DATETIME MySQL dengan spasi (contoh: "2026-10-14 13:37:00")
+      if (s.includes(' ')) {
+        const bagianJam = s.split(' ')[1];
+        return bagianJam.slice(0, 5);
+      }
+
+      // 3. Jika format TIME murni (contoh: "13:37:00")
+      if (s.includes(':')) {
+        const parts = s.split(':');
+        return `${parts[0].slice(-2)}:${parts[1].slice(0, 2)}`;
+      }
+
+      return s.slice(0, 5);
+    }
 
     async function muatDataMonitoring() {
       try {
@@ -189,7 +220,6 @@
       }
     }
 
-    // Kalkulasi KPI 7 Milestone
     function hitungKPI() {
       let t1 = 0,
         t2 = 0,
@@ -200,13 +230,13 @@
         t7 = 0;
 
       listMasterData.forEach(p => {
-        if (p.t1_checkin) t1++;
-        if (p.t2_tunggu_poli && p.stts === 'Belum') t2++;
-        if (p.t3_panggilan && p.stts === 'Berkas Diterima') t3++;
-        if (p.t4_pelayanan && p.stts !== 'Sudah' && p.stts !== 'Belum') t4++;
-        if (p.t5_selesai_poli) t5++;
-        if (p.t6_antre_farmasi && !p.t7_obat_selesai) t6++;
-        if (p.t7_obat_selesai) t7++;
+        if (formatJam(p.t1_ambil_tiket)) t1++;
+        if (formatJam(p.t2_panggil_loket)) t2++;
+        if (formatJam(p.t3_rm_dikirim)) t3++;
+        if (formatJam(p.t4_rm_diterima)) t4++;
+        if (formatJam(p.t5_rm_kembali)) t5++;
+        if (formatJam(p.t6_jam_peresepan)) t6++;
+        if (formatJam(p.t7_jam_selesai_obat)) t7++;
       });
 
       document.getElementById('kpi-t1').innerText = t1;
@@ -222,7 +252,6 @@
       const keyword = document.getElementById('search-input').value.toLowerCase().trim();
       const filterPoli = document.getElementById('filter-poli').value;
       const tbody = document.getElementById('tabel-body-pasien');
-      const sekarang = new Date();
 
       let filtered = listMasterData.filter(item => {
         const matchKeyword =
@@ -237,16 +266,9 @@
           matchTab = item.stts_daftar === 'Lama';
         } else if (tabAktif === 'BARU') {
           matchTab = item.stts_daftar === 'Baru';
-        } else if (tabAktif === 'MACET') {
-          // Cek jika tunggu poli > 45 menit
-          if (item.stts === 'Belum' && item.t2_tunggu_poli) {
-            const [j, m] = item.t2_tunggu_poli.split(':');
-            const w = new Date();
-            w.setHours(j, m, 0);
-            matchTab = Math.floor((sekarang - w) / 60000) > 45;
-          } else {
-            matchTab = false;
-          }
+        } else if (tabAktif === 'BERKAS_BELUM') {
+          // Berkas sudah diterima di poli tapi belum dikembalikan ke filing (TID 5 belum selesai)
+          matchTab = !!formatJam(item.t4_rm_diterima) && !formatJam(item.t5_rm_kembali);
         }
 
         return matchKeyword && matchPoli && matchTab;
@@ -263,17 +285,13 @@
         const isBPJS = p.jenis_pasien === 'BPJS';
         const isLama = p.stts_daftar === 'Lama';
 
-        // Stepper Helper Function (Versi Terang & Kontras)
-        function getStep(isActive, isDone, timeStr) {
-          if (isDone) {
+        // Stepper Helper Function
+        function getStep(isDone, timeRaw) {
+          const jamTeks = formatJam(timeRaw);
+          if (jamTeks) {
             return `<div class="flex flex-col items-center">
                             <span class="w-5 h-5 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center text-[10px] shadow-sm">✓</span>
-                            <span class="text-[9px] text-emerald-700 font-mono mt-1 font-bold">${timeStr ? timeStr.slice(0,5) : '-'}</span>
-                        </div>`;
-          } else if (isActive) {
-            return `<div class="flex flex-col items-center">
-                            <span class="w-5 h-5 rounded-full bg-amber-400 text-slate-900 font-black flex items-center justify-center text-[10px] animate-pulse shadow-sm">●</span>
-                            <span class="text-[9px] text-amber-700 font-mono mt-1 font-bold">Proses</span>
+                            <span class="text-[9px] text-emerald-700 font-mono mt-1 font-bold">${jamTeks}</span>
                         </div>`;
           } else {
             return `<div class="flex flex-col items-center">
@@ -283,30 +301,11 @@
           }
         }
 
-        // Logika Status 7 Milestone
-        const s1Done = !!p.t1_checkin;
-        const s2Done = !!p.t2_tunggu_poli;
-        const s3Done = p.stts === 'Berkas Diterima' || p.stts === 'Sudah';
-        const s4Done = p.stts === 'Sudah';
-        const s5Done = p.stts === 'Sudah';
-        const s6Done = !!p.t6_antre_farmasi;
-        const s7Done = !!p.t7_obat_selesai;
-
-        // Hitung Total Durasi Layanan (Check-in s/d Selesai)
-        let durasiTeks = '-';
-        let isOverdue = false;
-        if (p.t1_checkin) {
-          const [j, m] = p.t1_checkin.split(':');
-          const wAwal = new Date();
-          wAwal.setHours(j, m, 0);
-          const selisih = Math.floor((sekarang - wAwal) / 60000);
-          durasiTeks = `${selisih} mnt`;
-          if (selisih > 60 && !s7Done) isOverdue = true;
-        }
+        const s7Done = !!formatJam(p.t7_jam_selesai_obat);
 
         tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition">
-                        <!-- Kolom 1: Pasien & Kategori -->
+                        <!-- Pasien & Kategori -->
                         <td class="p-4">
                             <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
                                 ${p.nm_pasien}
@@ -321,33 +320,33 @@
                             </div>
                         </td>
 
-                        <!-- Kolom 2: Tujuan Poli & Dokter -->
+                        <!-- Tujuan Poli & Dokter -->
                         <td class="p-4">
                             <div class="font-bold text-slate-800">${p.nm_poli}</div>
                             <div class="text-[11px] text-slate-500 truncate max-w-[160px]">${p.nm_dokter}</div>
                         </td>
 
-                        <!-- Kolom 3: 7 MILESTONE VISUAL STEPPER SESUAI GAMBAR BPJS -->
+                        <!-- 7 STEPPER REVISI: LOKET -> MUTASI_BERKAS (DIKIRIM, DITERIMA, KEMBALI) -> RESEP_OBAT (JAM_PERESEPAN, JAM) -->
                         <td class="p-4">
                             <div class="grid grid-cols-7 gap-1 items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200 shadow-inner">
-                                ${getStep(false, s1Done, p.t1_checkin)}
-                                ${getStep(s1Done && !s3Done, s2Done, p.t2_tunggu_poli)}
-                                ${getStep(s2Done && !s4Done, s3Done, p.t3_panggilan)}
-                                ${getStep(s3Done && !s5Done, s4Done, p.t4_pelayanan)}
-                                ${getStep(s4Done && !s6Done, s5Done, p.t5_selesai_poli)}
-                                ${getStep(s5Done && !s7Done, s6Done, p.t6_antre_farmasi)}
-                                ${getStep(s6Done && !s7Done, s7Done, p.t7_obat_selesai)}
+                                ${getStep(true, p.t1_ambil_tiket)}
+                                ${getStep(true, p.t2_panggil_loket)}
+                                ${getStep(true, p.t3_rm_dikirim)}
+                                ${getStep(true, p.t4_rm_diterima)}
+                                ${getStep(true, p.t5_rm_kembali)}
+                                ${getStep(true, p.t6_jam_peresepan)}
+                                ${getStep(true, p.t7_jam_selesai_obat)}
                             </div>
                         </td>
 
-                        <!-- Kolom 4: Total Durasi Layanan (WTL) -->
+                        <!-- Info Resep / Tiket Farmasi -->
                         <td class="p-4 text-center">
-                            <span class="font-mono font-bold text-xs px-2.5 py-1 rounded-xl ${isOverdue ? 'bg-rose-100 text-rose-700 border border-rose-300 animate-pulse' : 'bg-slate-100 text-slate-700 border border-slate-200'}">
-                                ${durasiTeks}
-                            </span>
+                            <div class="font-mono font-bold text-xs text-indigo-700">
+                                ${p.no_antrian_farmasi || (p.no_resep || '-')}
+                            </div>
                         </td>
 
-                        <!-- Kolom 5: Status Terkini -->
+                        <!-- Status Terkini -->
                         <td class="p-4 text-center">
                             <span class="px-2.5 py-1 rounded-xl font-bold text-[10px] ${s7Done ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : (p.stts === 'Sudah' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-amber-100 text-amber-800 border border-amber-200')}">
                                 ${s7Done ? 'Obat Selesai' : (p.stts === 'Sudah' ? 'Poli Selesai' : p.stts)}
@@ -360,10 +359,10 @@
 
     function setTabFilter(tab) {
       tabAktif = tab;
-      ['SEMUA', 'LAMA', 'BARU', 'MACET'].forEach(t => {
+      ['SEMUA', 'LAMA', 'BARU', 'BERKAS_BELUM'].forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (t === tab) {
-          btn.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition";
+          btn.className = "px-3 py-1.5 rounded-lg bg-indigo-600 text-white shadow-sm transition";
         } else {
           btn.className = "px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition";
         }
