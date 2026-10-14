@@ -26,18 +26,20 @@ const resepSelesaiTerpanggil = new Set();
 // =================================================================
 async function initServer() {
     try {
-        // Catat resep dokter yang sudah ada hari ini
-        const [resepDokter] = await db.query(`SELECT no_resep FROM resep_obat WHERE tgl_peresepan = CURDATE()`);
+        await initTabelFarmasi();
+
+        // Hanya catat resep dokter rawat jalan (ralan) hari ini
+        const [resepDokter] = await db.query(`SELECT no_resep FROM resep_obat WHERE tgl_peresepan = CURDATE() AND status = 'ralan'`);
         resepDokter.forEach(r => resepMasukTerdata.add(r.no_resep));
 
-        // Catat resep yang sudah selesai/disimpan apoteker
+        // Hanya catat resep ralan yang sudah selesai
         const [resepSelesai] = await db.query(`
             SELECT no_resep FROM resep_obat 
-            WHERE tgl_perawatan = CURDATE() AND jam != '00:00:00' AND jam IS NOT NULL
+            WHERE tgl_perawatan = CURDATE() AND jam != '00:00:00' AND jam IS NOT NULL AND status = 'ralan'
         `);
         resepSelesai.forEach(r => resepSelesaiTerpanggil.add(r.no_resep));
 
-        console.log(`💊 Radar Farmasi Siap: ${resepMasukTerdata.size} resep dokter & ${resepSelesaiTerpanggil.size} resep selesai tercatat.`);
+        console.log(`💊 Radar Farmasi (Rajal) Siap: ${resepMasukTerdata.size} resep dokter & ${resepSelesaiTerpanggil.size} resep selesai tercatat.`);
     } catch (err) {
         console.error('Error init farmasi:', err.message);
     }
@@ -103,11 +105,55 @@ app.post('/api/loket/ambil-tiket', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-app.get('/api/loket/status-hari-ini', async (req, res) => {
+app.get('/api/farmasi/status-hari-ini', async (req, res) => {
     try {
-        const [antrean] = await db.query(`SELECT * FROM custom_antrian_loket WHERE tanggal = CURDATE() ORDER BY id ASC`);
-        res.json({ success: true, data: antrean });
-    } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+        // A. Resep RAJAL yang SUDAH SELESAI / SIAP DIAMBIL
+        const [siapDiambil] = await db.query(`
+            SELECT 
+                r.no_resep, 
+                r.no_rawat, 
+                r.jam AS waktu_selesai, 
+                p.nm_pasien, 
+                poli.nm_poli,
+                IFNULL(caf.nomor_antrian, r.no_resep) AS nomor_antrian
+            FROM resep_obat r
+            INNER JOIN reg_periksa reg ON r.no_rawat = reg.no_rawat
+            INNER JOIN pasien p ON reg.no_rkm_medis = p.no_rkm_medis
+            INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
+            LEFT JOIN custom_antrian_farmasi caf ON r.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
+            WHERE r.tgl_perawatan = CURDATE() 
+                AND r.jam != '00:00:00' 
+                AND r.jam IS NOT NULL
+                AND r.status = 'ralan'
+            ORDER BY r.jam DESC
+            LIMIT 10
+        `);
+
+        // B. Resep RAJAL yang BARU MASUK DARI POLI (Sedang Diracik)
+        const [sedangDiracik] = await db.query(`
+            SELECT 
+                r.no_resep, 
+                r.no_rawat, 
+                r.jam_peresepan, 
+                p.nm_pasien, 
+                poli.nm_poli,
+                IFNULL(caf.nomor_antrian, r.no_resep) AS nomor_antrian
+            FROM resep_obat r
+            INNER JOIN reg_periksa reg ON r.no_rawat = reg.no_rawat
+            INNER JOIN pasien p ON reg.no_rkm_medis = p.no_rkm_medis
+            INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
+            LEFT JOIN custom_antrian_farmasi caf ON r.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
+            WHERE r.tgl_peresepan = CURDATE() 
+                AND (r.tgl_perawatan = '0000-00-00' OR r.tgl_perawatan IS NULL OR r.jam = '00:00:00' OR r.jam IS NULL)
+                AND r.status = 'ralan'
+            ORDER BY r.jam_peresepan DESC
+            LIMIT 15
+        `);
+
+        res.json({ success: true, siap_diambil: siapDiambil, sedang_diracik: sedangDiracik });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
 app.post('/api/loket/panggil-berikutnya', async (req, res) => {
@@ -218,9 +264,10 @@ app.get('/api/farmasi/status-hari-ini', async (req, res) => {
 // =================================================================
 setInterval(async () => {
     try {
-        // Radar 1: Dokter input resep
+        // Radar 1: Dokter input resep (Khusus Rajal)
         const [resepBaruDokter] = await db.query(`
-            SELECT r.no_resep FROM resep_obat r WHERE r.tgl_peresepan = CURDATE()
+            SELECT r.no_resep FROM resep_obat r 
+            WHERE r.tgl_peresepan = CURDATE() AND r.status = 'ralan'
         `);
         let adaBaru = false;
         for (const r of resepBaruDokter) {
@@ -231,7 +278,7 @@ setInterval(async () => {
         }
         if (adaBaru) io.emit('update-antrian-farmasi');
 
-        // Radar 2: Apoteker klik Simpan Obat (Ambil juga nomor tiket F-001)
+        // Radar 2: Apoteker Simpan Resep (Khusus Rajal)
         const [resepSelesai] = await db.query(`
             SELECT 
                 r.no_resep, 
@@ -248,6 +295,7 @@ setInterval(async () => {
             WHERE r.tgl_perawatan = CURDATE() 
                 AND r.jam != '00:00:00' 
                 AND r.jam IS NOT NULL
+                AND r.status = 'ralan'
             ORDER BY r.jam DESC
             LIMIT 5
         `);
@@ -255,7 +303,7 @@ setInterval(async () => {
         for (const item of resepSelesai) {
             if (!resepSelesaiTerpanggil.has(item.no_resep)) {
                 resepSelesaiTerpanggil.add(item.no_resep);
-                console.log(`💊 [FARMASI SIAP] Obat Selesai: ${item.nomor_antrian} - ${item.nm_pasien}`);
+                console.log(`💊 [FARMASI RAJAL] Obat Selesai: ${item.nomor_antrian} - ${item.nm_pasien}`);
                 io.emit('suara-panggil-farmasi', item);
                 io.emit('update-antrian-farmasi');
             }
