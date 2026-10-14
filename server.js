@@ -363,7 +363,77 @@ app.get('/api/kamar/ketersediaan', async (req, res) => {
 });
 
 // =================================================================
-// 5. SOCKET.IO EVENT LISTENERS (WAJIB ADA AGAR TV BISA MERESPON)
+// 6. MODUL DASHBOARD MONITORING TASK ID (STANDAR BPJS 7 MILESTONE)
+// =================================================================
+app.get('/api/monitor/taskid-hari-ini', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                reg.no_rawat,
+                reg.no_reg,
+                reg.no_rkm_medis,
+                pas.nm_pasien,
+                reg.stts_daftar,
+                reg.stts,
+                poli.kd_poli,
+                poli.nm_poli,
+                dok.nm_dokter,
+                reg.kd_pj,
+                CASE WHEN reg.kd_pj = 'BPJ' THEN 'BPJS' ELSE 'UMUM' END AS jenis_pasien,
+                
+                -- 1. DATANG & CHECK-IN (ANJUNGAN MANDIRI / LOKET)
+                IFNULL(cal.waktu_ambil, reg.jam_reg) AS t1_checkin,
+                
+                -- 2. MULAI WAKTU TUNGGU POLI
+                reg.jam_reg AS t2_tunggu_poli,
+                
+                -- 3. PEMANGGILAN PESERTA OLEH PETUGAS/DOKTER POLI
+                CASE 
+                    WHEN reg.stts = 'Berkas Diterima' OR reg.stts = 'Sudah' THEN reg.jam_reg 
+                    ELSE NULL 
+                END AS t3_panggilan,
+                
+                -- 4. PELAYANAN DOKTER DI POLI
+                CASE 
+                    WHEN reg.stts = 'Sudah' THEN reg.jam_reg 
+                    ELSE NULL 
+                END AS t4_pelayanan,
+                
+                -- 5. SELESAI PELAYANAN POLI
+                CASE 
+                    WHEN reg.stts = 'Sudah' THEN reg.jam_reg 
+                    ELSE NULL 
+                END AS t5_selesai_poli,
+                
+                -- 6. PASIEN MENDAPATKAN ANTREAN OBAT (FARMASI)
+                COALESCE(caf.waktu_cetak, ro.jam_peresepan) AS t6_antre_farmasi,
+                caf.nomor_antrian AS no_antrian_farmasi,
+                ro.no_resep,
+                
+                -- 7. OBAT SELESAI DIBUAT & DISERAHKAN (PULANG)
+                ro.jam AS t7_obat_selesai
+                
+            FROM reg_periksa reg
+            INNER JOIN pasien pas ON reg.no_rkm_medis = pas.no_rkm_medis
+            INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
+            INNER JOIN dokter dok ON reg.kd_dokter = dok.kd_dokter
+            LEFT JOIN penjab pj ON reg.kd_pj = pj.kd_pj
+            LEFT JOIN custom_antrian_loket cal ON reg.no_rkm_medis = cal.no_rkm_medis AND cal.tanggal = CURDATE()
+            LEFT JOIN custom_antrian_farmasi caf ON reg.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
+            LEFT JOIN resep_obat ro ON reg.no_rawat = ro.no_rawat AND ro.tgl_peresepan = CURDATE()
+            WHERE reg.tgl_registrasi = CURDATE()
+            ORDER BY reg.jam_reg DESC
+        `;
+        const [rows] = await db.query(query);
+        res.json({ success: true, data: rows });
+    } catch (e) {
+        console.error('Error monitor taskid:', e.message);
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// =================================================================
+// 7. SOCKET.IO EVENT LISTENERS (WAJIB ADA AGAR TV BISA MERESPON)
 // =================================================================
 io.on('connection', (socket) => {
     // Tangkap panggilan dari dokter poli lalu pancarkan ke TV Poli
