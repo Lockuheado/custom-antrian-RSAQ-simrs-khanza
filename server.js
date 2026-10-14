@@ -105,54 +105,14 @@ app.post('/api/loket/ambil-tiket', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, message: e.message }); }
 });
 
-app.get('/api/farmasi/status-hari-ini', async (req, res) => {
+app.get('/api/loket/status-hari-ini', async (req, res) => {
     try {
-        // A. Resep RAJAL yang SUDAH SELESAI / SIAP DIAMBIL
-        const [siapDiambil] = await db.query(`
-            SELECT 
-                r.no_resep, 
-                r.no_rawat, 
-                r.jam AS waktu_selesai, 
-                p.nm_pasien, 
-                poli.nm_poli,
-                IFNULL(caf.nomor_antrian, r.no_resep) AS nomor_antrian
-            FROM resep_obat r
-            INNER JOIN reg_periksa reg ON r.no_rawat = reg.no_rawat
-            INNER JOIN pasien p ON reg.no_rkm_medis = p.no_rkm_medis
-            INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
-            LEFT JOIN custom_antrian_farmasi caf ON r.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
-            WHERE r.tgl_perawatan = CURDATE() 
-                AND r.jam != '00:00:00' 
-                AND r.jam IS NOT NULL
-                AND r.status = 'ralan'
-            ORDER BY r.jam DESC
-            LIMIT 10
-        `);
-
-        // B. Resep RAJAL yang BARU MASUK DARI POLI (Sedang Diracik)
-        const [sedangDiracik] = await db.query(`
-            SELECT 
-                r.no_resep, 
-                r.no_rawat, 
-                r.jam_peresepan, 
-                p.nm_pasien, 
-                poli.nm_poli,
-                IFNULL(caf.nomor_antrian, r.no_resep) AS nomor_antrian
-            FROM resep_obat r
-            INNER JOIN reg_periksa reg ON r.no_rawat = reg.no_rawat
-            INNER JOIN pasien p ON reg.no_rkm_medis = p.no_rkm_medis
-            INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
-            LEFT JOIN custom_antrian_farmasi caf ON r.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
-            WHERE r.tgl_peresepan = CURDATE() 
-                AND (r.tgl_perawatan = '0000-00-00' OR r.tgl_perawatan IS NULL OR r.jam = '00:00:00' OR r.jam IS NULL)
-                AND r.status = 'ralan'
-            ORDER BY r.jam_peresepan DESC
-            LIMIT 15
-        `);
-
-        res.json({ success: true, siap_diambil: siapDiambil, sedang_diracik: sedangDiracik });
-    } catch (e) {
-        res.status(500).json({ success: false, message: e.message });
+        const [antrean] = await db.query(
+            "SELECT * FROM custom_antrian_loket WHERE tanggal = CURDATE() ORDER BY id ASC"
+        );
+        res.json({ success: true, data: antrean });
+    } catch (e) { 
+        res.status(500).json({ success: false, message: e.message }); 
     }
 });
 
@@ -411,7 +371,7 @@ app.get('/api/kamar/ketersediaan', async (req, res) => {
 });
 
 // =================================================================
-// 6. MODUL MONITORING TASK ID (PROSES RM MUTASI_BERKAS & RESEP_OBAT)
+// 6. MODUL MONITORING TASK ID (KHUSUS PASIEN BPJS KESEHATAN)
 // =================================================================
 app.get('/api/monitor/taskid-hari-ini', async (req, res) => {
     try {
@@ -428,7 +388,7 @@ app.get('/api/monitor/taskid-hari-ini', async (req, res) => {
                 poli.nm_poli,
                 dok.nm_dokter,
                 reg.kd_pj,
-                CASE WHEN reg.kd_pj = 'BPJ' THEN 'BPJS' ELSE 'UMUM' END AS jenis_pasien,
+                'BPJS' AS jenis_pasien,
                 
                 -- TID 1 & TID 2 (LOKET PENDAFTARAN)
                 IFNULL(cal.waktu_ambil, reg.jam_reg) AS t1_ambil_tiket,
@@ -449,12 +409,12 @@ app.get('/api/monitor/taskid-hari-ini', async (req, res) => {
             INNER JOIN pasien pas ON reg.no_rkm_medis = pas.no_rkm_medis
             INNER JOIN poliklinik poli ON reg.kd_poli = poli.kd_poli
             INNER JOIN dokter dok ON reg.kd_dokter = dok.kd_dokter
-            LEFT JOIN penjab pj ON reg.kd_pj = pj.kd_pj
             LEFT JOIN custom_antrian_loket cal ON reg.no_rkm_medis = cal.no_rkm_medis AND cal.tanggal = CURDATE()
             LEFT JOIN mutasi_berkas mb ON reg.no_rawat = mb.no_rawat
             LEFT JOIN custom_antrian_farmasi caf ON reg.no_rawat = caf.no_rawat AND caf.tanggal = CURDATE()
             LEFT JOIN resep_obat ro ON reg.no_rawat = ro.no_rawat AND ro.tgl_peresepan = CURDATE()
             WHERE reg.tgl_registrasi = CURDATE()
+                AND reg.kd_pj = 'BPJ' -- FILTER KHUSUS: HANYA PASIEN BPJS KESEHATAN
             ORDER BY reg.jam_reg DESC
         `;
         const [rows] = await db.query(query);
